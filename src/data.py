@@ -1,91 +1,251 @@
-from typing import Literal, Dict, Any, Tuple, List
+"""
+Data loading and preprocessing utilities for QEvasion dataset.
+"""
+from typing import Tuple
 from datasets import load_dataset, DatasetDict, Dataset
+import pandas as pd
+import numpy as np
 
-from .label_maps import (
-    CLARITY_TO_ID,
-    EVASION_TO_ID,
-)
+# Label mappings
+CLARITY_LABELS = ['Ambivalent', 'Clear Non-Reply', 'Clear Reply']
+EVASION_LABELS = [
+    'Claims ignorance',
+    'Clarification', 
+    'Declining to answer',
+    'Deflection',
+    'Dodging',
+    'Explicit',
+    'General',
+    'Implicit',
+    'Partial/half-answer'
+]
+
+CLARITY_TO_ID = {label: idx for idx, label in enumerate(CLARITY_LABELS)}
+ID_TO_CLARITY = {idx: label for label, idx in CLARITY_TO_ID.items()}
+
+EVASION_TO_ID = {label: idx for idx, label in enumerate(EVASION_LABELS)}
+ID_TO_EVASION = {idx: label for label, idx in EVASION_TO_ID.items()}
 
 
 def load_qevasion_hf() -> DatasetDict:
-    """
-    Load the original QEvasion DatasetDict from Hugging Face.
-    """
+    """Load the original QEvasion dataset from Hugging Face."""
     return load_dataset("ailsntua/QEvasion")
 
 
-def build_text(question: str, answer: str) -> str:
+def _ensure_expected_columns(ds: Dataset) -> None:
+    """Validate that dataset has expected columns."""
+    expected = {
+        "interview_question",
+        "interview_answer",
+        "clarity_label",
+        "evasion_label",
+    }
+    missing = expected.difference(ds.column_names)
+    if missing:
+        raise ValueError(f"Missing expected columns: {missing}")
+
+
+def build_text_column(df: pd.DataFrame, sep_token: str = "[SEP]") -> pd.DataFrame:
     """
-    Build the unified text field = Question + Answer.
-    Mirrors what you do in the baselines and transformer notebooks.
+    Build unified text input from question and answer.
+    
+    Args:
+        df: DataFrame with 'interview_question' and 'interview_answer' columns
+        sep_token: Separator token between question and answer
+        
+    Returns:
+        DataFrame with added 'text' column
     """
-    return f"Question: {question}\nAnswer: {answer}"
+    df = df.copy()
+    q = df["interview_question"].fillna("")
+    a = df["interview_answer"].fillna("")
+    df["text"] = f"Question: " + q + f" {sep_token} Answer: " + a
+    return df
 
 
-def _encode_labels(example: Dict[str, Any]) -> Dict[str, Any]:
+def add_label_ids(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Add integer-encoded labels for clarity and evasion on TRAIN examples.
-    For TEST, evasion_label can be empty; we still encode clarity.
+    Add integer label ID columns for clarity and evasion.
+    
+    Args:
+        df: DataFrame with 'clarity_label' and optionally 'evasion_label'
+        
+    Returns:
+        DataFrame with added 'clarity_id' and 'evasion_id' columns
     """
-    clarity_label = example.get("clarity_label")
-    evasion_label = example.get("evasion_label")
+    df = df.copy()
+    
+    # Add clarity IDs
+    df["clarity_id"] = df["clarity_label"].map(CLARITY_TO_ID)
+    
+    # Add evasion IDs (handle missing values)
+    mask_valid = df["evasion_label"].notna() & (df["evasion_label"] != "")
+    df["evasion_id"] = np.where(
+        mask_valid,
+        df["evasion_label"].map(EVASION_TO_ID),
+        -1  # Invalid label marker
+    )
+    
+    return df
 
-    example["clarity_id"] = CLARITY_TO_ID.get(clarity_label, -1)
 
-    if evasion_label is not None and evasion_label != "":
-        example["evasion_id"] = EVASION_TO_ID.get(evasion_label, -1)
-    else:
-        example["evasion_id"] = -1
-
-    return example
-
-
-def prepare_split(ds: Dataset, split_name: str) -> Dataset:
+def add_text_statistics(df: pd.DataFrame) -> pd.DataFrame:
     """
-    For a given split:
-    - Create 'text' = Question + Answer
-    - Encode labels to ids
+    Add text length statistics.
+    
+    Args:
+        df: DataFrame with 'interview_question' and 'interview_answer'
+        
+    Returns:
+        DataFrame with added length columns
     """
-    def _map_fn(example):
-        text = build_text(
-            question=example["interview_question"],
-            answer=example["interview_answer"],
-        )
-        example["text"] = text
-        example = _encode_labels(example)
-        return example
+    df = df.copy()
+    df['q_len'] = df['interview_question'].fillna('').str.split().str.len()
+    df['a_len'] = df['interview_answer'].fillna('').str.split().str.len()
+    df['qa_len'] = df['q_len'] + df['a_len']
+    return df
 
-    return ds.map(_map_fn)
+
+def get_annotator_labels(row: pd.Series) -> set:
+    """
+    Extract set of annotator labels from test set row.
+    
+    Args:
+        row: DataFrame row with annotator1/2/3 columns
+        
+    Returns:
+        Set of valid annotator labels (excluding empty/NaN)
+    """
+    labels = []
+    for col in ["annotator1", "annotator2", "annotator3"]:
+        val = row.get(col)
+        if pd.notna(val) and val != "":
+            labels.append(val)
+    return set(labels)
+
+
+def prepare_task1_data(
+    dataset: DatasetDict,
+    val_size: float = 0.1,
+    random_state: int = 42
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+    Prepare train/val/test splits for Task 1 (Clarity).
+    
+    Args:
+        dataset: Original QEvasion dataset
+        val_size: Fraction of training data to use for validation
+        random_state: Random seed for reproducibility
+        
+    Returns:
+        Tuple of (train_df, val_df, test_df) DataFrames
+    """
+    from sklearn.model_selection import train_test_split
+    
+    # Convert to pandas
+    train_df = dataset["train"].to_pandas()
+    test_df = dataset["test"].to_pandas()
+    
+    # Filter valid clarity labels
+    train_df = train_df[
+        train_df["clarity_label"].notna() & 
+        (train_df["clarity_label"] != "")
+    ].reset_index(drop=True)
+    
+    test_df = test_df[
+        test_df["clarity_label"].notna() & 
+        (test_df["clarity_label"] != "")
+    ].reset_index(drop=True)
+    
+    # Add preprocessing
+    train_df = build_text_column(train_df)
+    train_df = add_label_ids(train_df)
+    train_df = add_text_statistics(train_df)
+    
+    test_df = build_text_column(test_df)
+    test_df = add_label_ids(test_df)
+    test_df = add_text_statistics(test_df)
+    
+    # Split train into train/val
+    train_idx, val_idx = train_test_split(
+        np.arange(len(train_df)),
+        test_size=val_size,
+        stratify=train_df["clarity_id"].values,
+        random_state=random_state
+    )
+    
+    val_df = train_df.iloc[val_idx].reset_index(drop=True)
+    train_df = train_df.iloc[train_idx].reset_index(drop=True)
+    
+    return train_df, val_df, test_df
+
+
+def prepare_task2_data(
+    dataset: DatasetDict,
+    val_size: float = 0.1,
+    random_state: int = 42
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+    Prepare train/val/test splits for Task 2 (Evasion).
+    
+    Note: Test split has multiple annotators per example.
+    
+    Args:
+        dataset: Original QEvasion dataset
+        val_size: Fraction of training data to use for validation
+        random_state: Random seed for reproducibility
+        
+    Returns:
+        Tuple of (train_df, val_df, test_df) DataFrames
+    """
+    from sklearn.model_selection import train_test_split
+    
+    # Convert to pandas
+    train_df = dataset["train"].to_pandas()
+    test_df = dataset["test"].to_pandas()
+    
+    # Filter valid evasion labels (only in train)
+    train_df = train_df[
+        train_df["evasion_label"].notna() & 
+        (train_df["evasion_label"] != "")
+    ].reset_index(drop=True)
+    
+    # Add preprocessing
+    train_df = build_text_column(train_df)
+    train_df = add_label_ids(train_df)
+    train_df = add_text_statistics(train_df)
+    
+    # Test set: add text and extract annotator labels
+    test_df = build_text_column(test_df)
+    test_df["annotator_labels"] = test_df.apply(get_annotator_labels, axis=1)
+    
+    # Filter test rows with at least one annotator label
+    test_df = test_df[
+        test_df["annotator_labels"].apply(len) > 0
+    ].reset_index(drop=True)
+    
+    # Split train into train/val
+    train_idx, val_idx = train_test_split(
+        np.arange(len(train_df)),
+        test_size=val_size,
+        stratify=train_df["evasion_id"].values,
+        random_state=random_state
+    )
+    
+    val_df = train_df.iloc[val_idx].reset_index(drop=True)
+    train_df = train_df.iloc[train_idx].reset_index(drop=True)
+    
+    return train_df, val_df, test_df
 
 
 def load_qevasion_prepared() -> DatasetDict:
     """
-    Return a DatasetDict with:
-    - train and test
-    - 'text', 'clarity_id', 'evasion_id' added
+    Load QEvasion with basic validation.
+    
+    Returns:
+        Original DatasetDict from Hugging Face
     """
-    raw = load_qevasion_hf()
-    train_prep = prepare_split(raw["train"], "train")
-    test_prep = prepare_split(raw["test"], "test")
-    return DatasetDict({"train": train_prep, "test": test_prep})
-
-
-def get_text_and_labels(
-    split: Literal["train", "test"],
-    task: Literal["clarity", "evasion"],
-) -> Tuple[List[str], List[int]]:
-    """
-    Convenience helper to get (texts, label_ids) for a task/split.
-    For Task 2 on test, 'evasion_id' is -1 (no single gold); you will
-    use annotator columns for evaluation instead.
-    """
-    ds_dict = load_qevasion_prepared()
-    ds = ds_dict[split]
-
-    texts = ds["text"]
-    if task == "clarity":
-        labels = ds["clarity_id"]
-    else:
-        labels = ds["evasion_id"]
-
-    return texts, labels
+    dataset = load_qevasion_hf()
+    _ensure_expected_columns(dataset["train"])
+    _ensure_expected_columns(dataset["test"])
+    return dataset
