@@ -96,7 +96,7 @@ class EarlyStopping:
         return values[best_idx], best_idx
 
 
-def train_epoch_improved(
+def train_epoch(
     model: nn.Module,
     loader: torch.utils.data.DataLoader,
     optimizer: torch.optim.Optimizer,
@@ -133,19 +133,19 @@ def train_epoch_improved(
         
         input_ids = batch["input_ids"].to(device)
         attention_mask = batch["attention_mask"].to(device)
-        clarity_labels = batch.get("clarity_labels", batch["labels"]).to(device)
         
         # Forward pass
         if "evasion_labels" in batch:
             # Multi-task model
+            clarity_labels = batch["clarity_labels"].to(device)
+            evasion_labels = batch["evasion_labels"].to(device)
+            evasion_mask = batch["evasion_mask"].to(device).bool()
+            
             clarity_logits, evasion_logits = model(
                 input_ids=input_ids,
                 attention_mask=attention_mask
             )
             loss_clarity = clarity_loss_fn(clarity_logits, clarity_labels)
-            
-            evasion_labels = batch["evasion_labels"].to(device)
-            evasion_mask = batch["evasion_mask"].to(device).bool()
             
             if evasion_mask.any():
                 loss_evasion = evasion_loss_fn(
@@ -160,10 +160,11 @@ def train_epoch_improved(
             total_clarity_loss += loss_clarity.item()
         else:
             # Single-task model
+            labels = batch["labels"].to(device)
             outputs = model(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
-                labels=clarity_labels
+                labels=labels
             )
             loss = outputs.loss
         
@@ -215,7 +216,14 @@ def evaluate(
         for batch in loader:
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
-            labels = batch.get("clarity_labels", batch["labels"]).to(device)
+            
+            # Get labels - check which key exists
+            if "clarity_labels" in batch:
+                labels = batch["clarity_labels"].to(device)
+            elif "labels" in batch:
+                labels = batch["labels"].to(device)
+            else:
+                raise KeyError("Batch must contain either 'clarity_labels' or 'labels'")
             
             # Handle both single-task and multi-task models
             outputs = model(input_ids=input_ids, attention_mask=attention_mask)
@@ -369,7 +377,7 @@ def train_model(
             print("-" * 60)
         
         # Training
-        train_metrics = train_epoch_improved(
+        train_metrics = train_epoch(
             model, train_loader, optimizer, scheduler,
             clarity_loss_fn, evasion_loss_fn, device
         )
