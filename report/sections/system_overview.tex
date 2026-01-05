@@ -2,3 +2,198 @@
 
 \textit{Describe all the methdodological choices that you performed: e.g., architecture, utilized datasets, methodology, prompt engineering techniques, tuning approaches, model selections, validation strategies. Use separate subparagraphs for each piece of information. Use diagrams to describe architectural choices.
 }
+
+This section describes our approach to clarity and evasion classification, including baseline models, transformer architectures, and our multi-task learning strategy.
+
+
+% Subsection 3.1
+\subsection{Dataset and Task Formulation}
+\label{subsec:data-repr}
+
+We use the QEvasion dataset~\cite{qevasion}, which contains political question--answer pairs with annotations for two related tasks. The dataset comprises 3,448 train examples and 308 test examples; validation is created as a 10\% split of train (around 345 examples).
+
+\paragraph{Task 1: Clarity Classification.}
+Given a question--answer pair, predict whether the answer is a \textit{Clear Reply}, \textit{Clear Non-Reply}, or \textit{Ambivalent} (3-way classification).
+
+\paragraph{Task 2: Evasion Strategy Classification.}
+For answers annotated with an evasion label, identify the specific evasion strategy from 9 categories: \textit{Explicit}, \textit{Dodging}, \textit{Implicit}, \textit{General}, \textit{Deflection}, \textit{Declining to answer}, \textit{Claims ignorance}, \textit{Clarification}, and \textit{Partial half-answer}.
+
+\paragraph{Input Representation.}
+All models receive the concatenated question and answer text as input. For transformer models, we prepend special tokens to distinguish the two segments: 
+\texttt{[CLS] question [SEP] answer [SEP]}.
+
+
+% Subsection 3.2
+\subsection{Baseline Models}
+\label{subsec:baselines}
+
+We implement three classical baselines to establish reference performance:
+
+\begin{itemize}
+    \item \textbf{Majority Class:} Always predicts the most frequent class in training data.
+    \item \textbf{Logistic Regression:} Trained on TF-IDF features (unigrams + bigrams, max 30K features, min-df=2, max-df=0.95) with balanced class weights.
+    \item \textbf{Linear SVM:} One-vs-rest linear SVM on the same TF-IDF features with balanced class weights.
+\end{itemize}
+
+Both LR and SVM use scikit-learn implementations with default regularization parameters.
+
+\subsection{Transformer-Based Models}
+\label{subsec:transformers}
+
+We fine-tune pre-trained transformer encoders using DistilBERT-base-uncased~\cite{sanh2019distilbert} (66M parameters, 6 layers, hidden size 768). We chose DistilBERT for its favorable balance between performance and computational efficiency compared to full BERT models.
+
+\subsubsection{Single-Task Models}
+
+We train separate models for each task:
+
+\paragraph{Clarity Model.}
+A standard sequence classification setup with a 3-way output head on top of the \texttt{[CLS]} token representation. Trained with cross-entropy loss:
+\[
+\mathcal{L}_{\text{clarity}} = -\frac{1}{N}\sum_{i=1}^N \log p_\theta(y_i \mid x_i)
+\]
+
+\paragraph{Evasion Model.}
+A 9-way classification model trained with Focal Loss~\cite{lin2017focal} to address severe class imbalance in evasion strategies (see Table~\ref{tab:class-dist}). Focal Loss down-weights easy examples and focuses learning on hard cases:
+\[
+\mathcal{L}_{\text{evasion}} = -\frac{1}{N}\sum_{i=1}^{N} (1 - p_{t,i})^{\gamma} \log(p_{t,i})
+\]
+where $p_{t,i}$ is the predicted probability for the true class and $\gamma=2.0$ is the focusing parameter. We experimented with $\gamma \in \{0, 1, 2, 3\}$ and found $\gamma=2.0$ optimal on validation data.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lcc}
+\toprule
+\textbf{Evasion Strategy} & \textbf{Train} & \textbf{\%} \\
+\midrule
+Explicit & 1052 & 30.5\% \\
+Dodging & 706 & 20.5\% \\
+Implicit & 488 & 14.2\% \\
+General & 386 & 11.2\% \\
+Deflection & 381 & 11.0\% \\
+Declining to answer & 145 & 4.2\% \\
+Claims ignorance & 119 & 3.5\% \\
+Clarification & 92 & 2.7\% \\
+Partial half-answer & 79 & 2.3\% \\
+
+
+\bottomrule
+\end{tabular}
+\caption{Class distribution for Task 2 (Evasion) in the training set, showing severe imbalance with 14.4× ratio between most and least frequent classes.}
+\label{tab:class-dist}
+\end{table}
+
+
+% Subsection 3.3
+\subsubsection{Multi-Task Model}
+\label{subsubsec:multitask}
+
+Motivated by the intuition that clarity and evasion strategy are complementary signals, clear non-replies naturally correspond to specific evasion tactics, we develop a multi-task architecture that jointly predicts both labels.
+
+\paragraph{Architecture.}
+Our multi-task model shares the DistilBERT encoder across both tasks and employs two task-specific classification heads (Figure~\ref{fig:multitask-arch}). Each head consists of a dropout layer (p=0.1) followed by a linear projection to the respective number of classes.
+
+\begin{figure}[t]
+\centering
+\resizebox{\columnwidth}{!}{%
+    \begin{tikzpicture}[
+        node distance=0.8cm,
+        box/.style={rectangle, draw, minimum width=3.5cm, minimum height=0.7cm, align=center},
+        arrow/.style={->, >=stealth, thick}
+    ]
+        % Input
+        \node[box] (input) {\texttt{[CLS] question [SEP] answer [SEP]}};
+        
+        % Encoder
+        \node[box, below=of input, fill=blue!10] (encoder) {DistilBERT Encoder \\ (shared, 66M params)};
+        
+        % CLS representation
+        \node[box, below=of encoder, fill=green!10] (cls) {\texttt{[CLS]} representation \\ $h \in \mathbb{R}^{768}$};
+        
+        % Heads
+        \node[box, below left=0.8cm and 1.5cm of cls, fill=orange!10] (head1) {Clarity Head \\ (3-way)};
+        \node[box, below right=0.8cm and 1.5cm of cls, fill=purple!10] (head2) {Evasion Head \\ (9-way)};
+        
+        % Outputs
+        \node[box, below=of head1] (out1) {$p(\text{clarity} \mid x)$};
+        \node[box, below=of head2] (out2) {$p(\text{evasion} \mid x)$};
+        
+        % Arrows
+        \draw[arrow] (input) -- (encoder);
+        \draw[arrow] (encoder) -- (cls);
+        \draw[arrow] (cls) -- (head1);
+        \draw[arrow] (cls) -- (head2);
+        \draw[arrow] (head1) -- (out1);
+        \draw[arrow] (head2) -- (out2);
+    \end{tikzpicture}
+}
+\caption{Multi-task architecture with shared encoder and task-specific heads.}
+\label{fig:multitask-arch}
+\end{figure}
+
+\paragraph{Joint Training Objective.}
+The model is trained with a weighted sum of task-specific losses:
+\[
+\mathcal{L}_{\text{total}} = \lambda_{\text{clarity}} \mathcal{L}_{\text{clarity}} + \lambda_{\text{evasion}} \mathcal{L}_{\text{evasion}}
+\]
+where $\lambda_{\text{clarity}} = \lambda_{\text{evasion}} = 1.0$. We use cross-entropy for clarity and Focal Loss ($\gamma=2.0$) for evasion.
+
+\paragraph{Handling Missing Labels.}
+An important challenge is that some examples lack evasion annotations (particularly in the test set, where only clear non-replies are annotated for evasion). We address this by masking the evasion loss:
+\[
+\mathcal{L}_{\text{evasion}} = \frac{1}{|\mathcal{B}_{\text{valid}}|} \sum_{i \in \mathcal{B}_{\text{valid}}} (1 - p_{t,i})^{\gamma} \log(p_{t,i})
+\]
+where $\mathcal{B}_{\text{valid}}$ is the subset of examples in the batch with valid evasion labels. This allows the model to learn from all examples for clarity while using only labeled examples for evasion.
+
+
+% Subsection 3.4
+\subsection{Training Configuration}
+\label{subsec:training-hparams}
+
+Table~\ref{tab:hyperparams} summarizes our training hyperparameters, selected based on preliminary experiments on the validation set.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{ll}
+\toprule
+\textbf{Hyperparameter} & \textbf{Value} \\
+\midrule
+Optimizer & AdamW \\
+Learning rate & $2 \times 10^{-5}$ \\
+Batch size & 16 \\
+Max epochs & 5 \\
+Early stopping patience & 3 epochs \\
+Warmup steps & 0 \\
+Weight decay & 0.01 \\
+Max sequence length & 256 tokens \\
+Dropout (task heads) & 0.1 \\
+Focal Loss $\gamma$ & 2.0 \\
+Loss weights ($\lambda$) & 1.0 (both tasks) \\
+Random seed & 42 \\
+\bottomrule
+\end{tabular}
+\caption{Training hyperparameters for transformer models.}
+\label{tab:hyperparams}
+\end{table}
+
+All models use early stopping based on validation macro F1 score. For the multi-task model, we monitor the average of clarity and evasion macro F1 scores. Inputs are tokenized using the DistilBERT tokenizer with truncation and padding to 256 tokens.
+
+
+% Subsection 3.5
+\subsection{Evaluation Protocol}
+\label{subsec:evaluation}
+
+\paragraph{Task 1 (Clarity).}
+We report accuracy, macro-averaged F1, weighted F1, precision, and recall on the held-out test set using standard multi-class metrics.
+
+\paragraph{Task 2 (Evasion).}
+For training and validation, we use standard single-label evaluation metrics. However, the official test set contains multiple annotator labels per example, which disagrees with the evasion strategy identification. Following the task guidelines, we use \textbf{multi-annotator evaluation}: a prediction is considered correct if it matches any annotator's label for that example. Formally, for predicted label $\hat{y}_i$ and gold label set $G_i$:
+\[
+\text{Correct}(i) = \mathbb{I}[\hat{y}_i \in G_i]
+\]
+We compute accuracy, macro F1, and weighted F1 under this relaxed criterion.
+
+\subsection{Implementation Details}
+
+All models are implemented in PyTorch using the Hugging Face Transformers library~\cite{wolf2019transformers}. Experiments are conducted on Google Colab's T4 GPU (16GB GDDR6 VRAM). Training a single transformer model takes approximately 15 minutes. Code and trained models are published.\footnote{\url{https://github.com/minh-de-rien/political-evasion-classifier}}
