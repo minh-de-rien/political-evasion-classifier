@@ -1,4 +1,15 @@
 \section{Background}
 
-\textit{Provide an overview of relevant work in the literature related to your task.
+\textit{
+The CLARITY shared task addresses response clarity and evasion detection in question–answer interactions, particularly in political discourse. This problem is grounded in prior work from political communication, discourse analysis, and computational modeling of subjective language phenomena.
+
+Research in political science has long examined equivocation and strategic evasion as common features of political interviews and debates, where speakers may avoid directly answering questions through ambiguity, reframing, or topic shifts ~\cite{RASIAH2010664}. It is emphasized that evasive responses are typically intentional and rhetorically motivated, providing the theoretical basis for treating non-replies and ambiguous answers as distinct communicative behaviors.
+
+In NLP, the task formulation adopted by CLARITY is based on the work of ~\cite{thomas2024isaidthatdataset}, who introduce a hierarchical taxonomy of response clarity, distinguishing between clear replies, ambiguous replies, and clear non-replies, alongside fine-grained evasion categories. Their work also presents a large annotated dataset of political question–answer pairs and establishes baseline transformer-based models. The CLARITY shared task directly adopts both this taxonomy and dataset, enabling standardized evaluation.
+
+Related computational studies have explored answer relevance and quality assessment in question–answer settings, often using semantic similarity and contextual modeling to assess how well a response addresses a question ~\cite{Alvarez_2025},  ~\cite{farea2022evaluationquestionansweringsystems}. These approaches motivate the need for joint question–answer modeling relevant to CLARITY.
+
+Response clarity classification is also an inherently subjective task. Prior work has shown that annotator disagreement often reflects genuine interpretive variation rather than noise ~\cite{joseph2017constancemodelingannotationcontexts}. Such findings highlight the importance of careful annotation design and evaluation when modeling pragmatic judgments like clarity and evasion.
+
+Overall, CLARITY situates response clarity and evasion detection at the intersection of political discourse theory ~\cite{thomas2024isaidthatdataset}, discourse-aware NLP ~\cite{Alvarez_2025},  ~\cite{farea2022evaluationquestionansweringsystems}, and subjective annotation modeling ~\cite{joseph2017constancemodelingannotationcontexts}, providing a unified benchmark for evaluating models’ ability to reason about pragmatic intent in question–answer interactions.
 }
