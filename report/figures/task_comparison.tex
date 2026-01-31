@@ -1,0 +1,101 @@
+\begin{tikzpicture}[scale=0.85, transform shape]
+    % Task 1: Clarity Classification
+    \begin{scope}
+        % Title
+        \node[font=\bfseries] at (3.5, 6.5) {(a) Task 1: Clarity Classification};
+        
+        % Grid
+        \draw[gray!30] (0,0) grid[xstep=1, ystep=1] (7,6);
+        
+        % Y-axis
+        \draw[thick,->] (0,0) -- (0,6.5) node[above] {Test Macro F1 (\%)};
+        \foreach \y in {0,10,20,30,40,50,60}
+            \draw (0,\y/10) -- (-0.1,\y/10) node[left, font=\small] {\y};
+        
+        % X-axis with model names
+        \node[font=\small, text width=1.5cm, align=center] at (0.8,-0.5) {Majority};
+        \node[font=\small, text width=1.5cm, align=center] at (2,-0.5) {Log Reg};
+        \node[font=\small, text width=1.5cm, align=center] at (3.2,-0.5) {SVM};
+        \node[font=\small, text width=1.5cm, align=center] at (4.4,-0.5) {DistilBERT};
+        \node[font=\small, text width=1.5cm, align=center] at (5.6,-0.5) {BERT};
+        \node[font=\small, text width=1.5cm, align=center] at (6.8,-0.5) {ALBERT};
+        
+        % Bars - Baselines (gray)
+        \fill[gray!40] (0.4, 0) rectangle (1.2, 2.67);  % Majority: 26.7%
+        \fill[gray!40] (1.6, 0) rectangle (2.4, 4.46);  % Log Reg: 44.6%
+        \fill[gray!40] (2.8, 0) rectangle (3.6, 4.55);  % SVM: 45.5%
+        
+        % Bars - Transformers (green)
+        \fill[green!60!black] (4.0, 0) rectangle (4.8, 5.60);   % DistilBERT: 56.0%
+        \fill[green!60!black] (5.2, 0) rectangle (6.0, 5.66);   % BERT: 56.6%
+        \fill[green!60!black] (6.4, 0) rectangle (7.2, 5.13);   % ALBERT: 51.3%
+        
+        % Value labels
+        \node[font=\tiny] at (0.8, 2.9) {26.7};
+        \node[font=\tiny] at (2.0, 4.7) {44.6};
+        \node[font=\tiny] at (3.2, 4.8) {45.5};
+        \node[font=\tiny] at (4.4, 5.85) {56.0};
+        \node[font=\tiny] at (5.6, 5.91) {56.6};
+        \node[font=\tiny] at (6.8, 5.38) {51.3};
+        
+        % Improvement annotation
+        \draw[thick, red, <->] (3.6, 4.9) -- (4.0, 5.6);
+        \node[font=\tiny, red, text width=1.2cm, align=center] at (3.8, 5.8) {+11.1 pp};
+    \end{scope}
+    
+    % Task 2: Evasion Classification
+    \begin{scope}[xshift=9cm]
+        % Title
+        \node[font=\bfseries] at (3.5, 6.5) {(b) Task 2: Evasion Classification};
+        
+        % Grid
+        \draw[gray!30] (0,0) grid[xstep=1, ystep=1] (7,6);
+        
+        % Y-axis
+        \draw[thick,->] (0,0) -- (0,6.5) node[above, text width=3cm, align=center, font=\small] {Test Accuracy (\%)\\(Any Annotator)};
+        \foreach \y in {0,10,20,30,40,50}
+            \draw (0,\y/10) -- (-0.1,\y/10) node[left, font=\small] {\y};
+        
+        % X-axis with model names
+        \node[font=\small, text width=1.5cm, align=center] at (0.8,-0.5) {Majority};
+        \node[font=\small, text width=1.5cm, align=center] at (2,-0.5) {Log Reg};
+        \node[font=\small, text width=1.5cm, align=center] at (3.2,-0.5) {SVM};
+        \node[font=\small, text width=1.5cm, align=center] at (4.4,-0.5) {DistilBERT};
+        \node[font=\small, text width=1.5cm, align=center] at (5.6,-0.5) {BERT};
+        \node[font=\small, text width=1.5cm, align=center] at (6.8,-0.5) {ALBERT};
+        
+        % Bars - Baselines (gray)
+        \fill[gray!40] (0.4, 0) rectangle (1.2, 2.95);  % Majority: 29.5%
+        \fill[gray!40] (1.6, 0) rectangle (2.4, 3.21);  % Log Reg: 32.1%
+        \fill[gray!40] (2.8, 0) rectangle (3.6, 3.54);  % SVM: 35.4%
+        
+        % Bars - Transformers (orange)
+        \fill[orange!70] (4.0, 0) rectangle (4.8, 4.16);   % DistilBERT: 41.6%
+        \fill[orange!70] (5.2, 0) rectangle (6.0, 4.22);   % BERT: 42.2%
+        \fill[orange!70] (6.4, 0) rectangle (7.2, 4.45);   % ALBERT: 44.5%
+        
+        % Value labels
+        \node[font=\tiny] at (0.8, 3.2) {29.5};
+        \node[font=\tiny] at (2.0, 3.45) {32.1};
+        \node[font=\tiny] at (3.2, 3.78) {35.4};
+        \node[font=\tiny] at (4.4, 4.4) {41.6};
+        \node[font=\tiny] at (5.6, 4.46) {42.2};
+        \node[font=\tiny] at (6.8, 4.7) {44.5};
+        
+        % Improvement annotation
+        \draw[thick, red, <->] (3.6, 3.9) -- (4.0, 4.3);
+        \node[font=\tiny, red, text width=1.2cm, align=center] at (3.8, 4.6) {+6.2 to\\+9.1 pp};
+    \end{scope}
+    
+    % Legend
+    \begin{scope}[yshift=-1.5cm]
+        \fill[gray!40] (1,0) rectangle (1.5, 0.3);
+        \node[right, font=\small] at (1.6, 0.15) {Traditional Baselines};
+        
+        \fill[green!60!black] (5,0) rectangle (5.5, 0.3);
+        \node[right, font=\small] at (5.6, 0.15) {Transformers (Task 1)};
+        
+        \fill[orange!70] (10,0) rectangle (10.5, 0.3);
+        \node[right, font=\small] at (10.6, 0.15) {Transformers (Task 2)};
+    \end{scope}
+\end{tikzpicture}

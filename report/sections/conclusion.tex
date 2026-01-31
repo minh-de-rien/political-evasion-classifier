@@ -1,4 +1,5 @@
 \section{Conclusion}
 
-\textit{Provide a critical evaluation of your work. What are the main outcomes and limitations? How can the work be extended?
-}
+In this work, we presented a systematic evaluation of modeling approaches for the SemEval-2026 CLARITY shared task. Our experiments demonstrate that transformer-based architectures, particularly when combined with focal loss to handle class imbalance, significantly outperform classical baselines in capturing the pragmatic nuances of political evasion. Furthermore, while in-context learning with LLMs shows promise, our results suggest that supervised multi-task learning remains a more robust method for jointly predicting response clarity and specific evasion strategies.
+
+To further advance political evasion detection, future research should move beyond isolated question answer pairs to incorporate broader conversational context and speaker history. Additionally, integrating multimodal signals—such as audio prosody and visual gestures could reveal non-verbal evasion cues that text-only models currently miss. Finally, exploring cross-lingual transfer learning would be valuable to determine if the evasion taxonomies defined in this task hold true across different political cultures.

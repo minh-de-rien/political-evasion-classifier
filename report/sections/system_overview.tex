@@ -160,18 +160,29 @@ For training and validation, each example has a single evasion label and we use 
 \text{Correct}(i) = \mathbb{I}[\hat{y}_i \in G_i]
 \]
 
-\subsection{LLaMA / LLM-based Approach}
-\label{subsec:llama}
-This part is currently under development and will be included in the final version (missing notebook).
+\subsection{LLM-based Approach: Prompt Engineering and In-Context Learning}
+\label{subsec:llama-methodology}
+
+Beyond fine-tuned Transformer models, we investigate the efficacy of \textbf{Llama 3} as a zero-to-few-shot classifier. This approach evaluates whether a state-of-the-art Large Language Model (LLM) can capture political nuances through structured prompting alone, offering a computationally efficient alternative to fine-tuning. Inference was performed locally using the \texttt{mlx-lm} library on Apple Silicon hardware.
+
+\paragraph{Hierarchical Prompt Design and Reasoning.}
+To ensure adherence to the strict QEvasion taxonomy—where evasion strategies are nested within specific clarity categories—we developed a system prompt that explicitly defines the conditional dependencies between Task 1 (Clarity) and Task 2 (Evasion). The prompt enforces a strict logic: \textit{Clear Reply} maps exclusively to \textit{Explicit}, while \textit{Ambivalent} and \textit{Clear Non-Reply} are restricted to their respective strategy subsets. 
+
+To bolster consistency, we induced a \textbf{Chain-of-Thought (CoT)} process within the model's output schema. Each request requires a 1--2 sentence reasoning string to perform a "logic check" against taxonomy rules before selecting labels. Outputs were constrained to a JSON format (\texttt{reasoning, clarity, evasion}), facilitating an automated pipeline that handles formatting errors and string normalization.
+
+\paragraph{Shot-Scaling and Metric Alignment.}
+We evaluated the model's learning curve across 0, 1, 3, and 9-shot configurations. In the 3-shot setting, we adopted a balanced strategy by including one representative example for each clarity level. In the 9-shot setting, we ensured each of the nine evasion labels was represented once to provide the model with a sense of fine-grained strategic nuance. 
+
+For evaluation, we utilized the custom \texttt{compute\_metrics\_llama\_string} pipeline to ensure alignment with the BERT-based standards described in Section~\ref{subsec:evaluation}. This involves normalizing LLM outputs and implementing the multi-annotator "hit" metric for Task 2, allowing for a direct performance comparison between the prompted LLM and fine-tuned baselines.
 
 \subsection{Implementation Details}
 
-The system is implemented in Python using PyTorch and the Hugging Face Transformers library~\cite{wolf2019transformers}. The project is structured into modular components:
+The system is implemented in Python using PyTorch and the Hugging Face Transformers library. The project is organized into modular components that separate data processing, modeling, training, and evaluation logic. In particular:
 \begin{itemize}
-    \item \texttt{data.py}: dataset loading, preprocessing, label encoding, and split construction,
-    \item \texttt{models.py}: model definitions (single-task and multi-task) and custom loss functions (Focal Loss),
-    \item \texttt{training.py}: training/evaluation loops, early stopping, scheduler integration, and multi-task masking logic,
-    \item \texttt{metrics.py}: computation of classification metrics and multi-annotator evaluation for Task~2.
+    \item \texttt{data.py}: dataset loading from Hugging Face, preprocessing, label encoding and decoding, construction of training, validation, and test splits, and handling of missing or multi-annotator labels for Task~2;
+    \item \texttt{models.py}: definitions of single-task and multi-task transformer architectures, including task-specific classification heads and the implementation of focal loss for imbalanced evasion strategy prediction;
+    \item \texttt{training.py}: training and evaluation loops, optimizer and learning-rate scheduler integration, early stopping based on validation macro F1-score, and masking logic for missing evasion labels in the multi-task setting;
+    \item \texttt{metrics.py}: computation of classification metrics and implementation of the relaxed multi-annotator evaluation protocol for evasion strategy classification on the test set.
 \end{itemize}
 
-Experiments are conducted on Google Colab using a T4 GPU with 16GB of VRAM.
+Almost all experiments involving supervised fine-tuning of baseline and transformer models are conducted on Google Colab using a T4 GPU with 16GB of VRAM. The LLM-based experiments are executed separately using a local deployment setup, as described in Section~\ref{subsec:llama-methodology}, in order to support prompt-based inference and structured output generation.

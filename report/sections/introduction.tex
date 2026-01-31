@@ -1,30 +1,19 @@
 \section{Introduction}
+\label{sec:introduction}
 
-In public political discourse, answering a question does not necessarily mean providing information. Politicians frequently respond in ways that appear relevant while sidestepping the core intent of the question, a strategy that can influence audience interpretation without making explicit commitments. Such evasive behavior is particularly prevalent in high-visibility settings such as televised interviews and debates, where communicative choices are often deliberate and strategic.
+In political interviews and debates, responses to questions often fail to address the information requested, despite appearing relevant on the surface. Such evasive behavior allows speakers to maintain strategic ambiguity and manage accountability, making it a central phenomenon in political communication.
 
-Understanding and identifying question evasion is important for the analysis of political communication, media accountability, and public trust. However, automatically detecting evasive responses remains challenging, as it requires more than surface-level semantic similarity; effective systems must reason about intent, relevance, and pragmatic alignment between questions and answers.
+Automatically detecting question evasion is challenging, as it requires more than lexical or semantic similarity between a question and its answer. Effective models must capture pragmatic alignment and intent, reasoning about whether a response truly addresses the question.
 
-The CLARITY shared task at SemEval-2026 addresses this challenge by framing equivocation detection as a classification problem over political question–answer pairs. The task provides annotated data drawn from real-world political interactions and encourages the development of models capable of capturing nuanced forms of evasion. Two subtasks are defined: (1) classifying response clarity into three categories (Clear Reply, Ambivalent, Clear Non-Reply), and (2) identifying the specific evasion strategy among nine fine-grained categories.
+The CLARITY shared task at SemEval-2026 provides a structured framework for studying this problem using annotated political question--answer pairs. Two complementary subtasks are defined: response clarity classification and evasion strategy identification, capturing both coarse-grained and fine-grained aspects of evasive behavior.
 
-In this work, we investigate whether modern pre-trained language models can effectively identify evasive responses when explicitly modeling the relationship between a question and its answer. Rather than focusing solely on answer content, our approach emphasizes joint encoding as a means to capture mismatches between question intent and response substance.
-
-\subsection{Research Questions}
-
-Our experiments are guided by the following research questions:
+In this work, we investigate how different modeling choices affect political evasion detection. In particular, we address the following research questions:
 
 \begin{enumerate}
-    \item \textbf{RQ1:} How do transformer-based models compare to traditional baselines (TF-IDF + SVM) for clarity and evasion classification?
-    \item \textbf{RQ2:} Does multi-task learning—jointly predicting clarity and evasion—improve performance compared to single-task models?
-    \item \textbf{RQ3:} How does severe class imbalance in evasion strategies affect model performance, and can Focal Loss mitigate this issue?
-    \item \textbf{RQ4:} Which transformer architecture (BERT, DistilBERT, ALBERT) offers the best trade-off between accuracy and efficiency?
+    \item \textbf{RQ1:} How do transformer-based models compare to traditional baselines based on TF--IDF features and linear classifiers for clarity and evasion classification?
+    \item \textbf{RQ2:} How does severe class imbalance in evasion strategy labels affect model performance, and can focal loss mitigate this issue?
+    \item \textbf{RQ3:} Which transformer architecture (BERT, DistilBERT, ALBERT) offers the best trade-off between predictive performance and computational efficiency?
+    \item \textbf{RQ4:} To what extent can an LLM using in-context learning capture strategic evasion, and how does the inclusion of representative examples and explicit reasoning chains affect its adherence to the label taxonomy?
 \end{enumerate}
 
-\subsection{Contributions}
-
-Our main contributions are:
-\begin{itemize}
-    \item A systematic comparison of baseline and transformer models for the CLARITY shared task.
-    \item An analysis of multi-task learning for joint clarity and evasion prediction.
-    \item An empirical study of class imbalance effects and the use of Focal Loss for evasion classification.
-    \item Publicly available code and trained models.\footnote{\url{https://github.com/minh-de-rien/political-evasion-classifier}}
-\end{itemize}
+Our contributions are threefold. We provide a systematic comparison between classical baselines and transformer-based models for the CLARITY shared task, analyze the benefits and limitations of multi-task learning for joint clarity and evasion prediction, and conduct an empirical study of class imbalance effects through the use of focal loss for evasion strategy classification. All code and trained models are released for reproducibility.\footnote{\url{https://github.com/minh-de-rien/political-evasion-classifier}}
