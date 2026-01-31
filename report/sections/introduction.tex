@@ -1,14 +1,30 @@
 \section{Introduction}
+
 In public political discourse, answering a question does not necessarily mean providing information. Politicians frequently respond in ways that appear relevant while sidestepping the core intent of the question, a strategy that can influence audience interpretation without making explicit commitments. Such evasive behavior is particularly prevalent in high-visibility settings such as televised interviews and debates, where communicative choices are often deliberate and strategic.
 
 Understanding and identifying question evasion is important for the analysis of political communication, media accountability, and public trust. However, automatically detecting evasive responses remains challenging, as it requires more than surface-level semantic similarity; effective systems must reason about intent, relevance, and pragmatic alignment between questions and answers.
 
-The CLARITY shared task at SemEval-2026 addresses this challenge by framing equivocation detection as a classification problem over political question–answer pairs. The task provides annotated data drawn from real-world political interactions and encourages the development of models capable of capturing nuanced forms of evasion.
+The CLARITY shared task at SemEval-2026 addresses this challenge by framing equivocation detection as a classification problem over political question–answer pairs. The task provides annotated data drawn from real-world political interactions and encourages the development of models capable of capturing nuanced forms of evasion. Two subtasks are defined: (1) classifying response clarity into three categories (Clear Reply, Ambivalent, Clear Non-Reply), and (2) identifying the specific evasion strategy among nine fine-grained categories.
 
-In this work, we investigate whether modern pre-trained language models can effectively identify evasive responses when explicitly modeling the relationship between a question and its answer. Rather than focusing solely on answer content, our approach emphasizes joint encoding as a means to capture mismatches between question intent and response substance. The remainder of this paper details our system design, experimental setup, results, and a discussion of observed limitations.
+In this work, we investigate whether modern pre-trained language models can effectively identify evasive responses when explicitly modeling the relationship between a question and its answer. Rather than focusing solely on answer content, our approach emphasizes joint encoding as a means to capture mismatches between question intent and response substance.
 
+\subsection{Research Questions}
 
-\textit{Describe here the objectives and the context of application of your experiment. This text can be based on the application description or on the SEMeval task requirements
-}
+Our experiments are guided by the following research questions:
 
-\subsection{Research Questions} \textit{list the research questions of your experiment.}
+\begin{enumerate}
+    \item \textbf{RQ1:} How do transformer-based models compare to traditional baselines (TF-IDF + SVM) for clarity and evasion classification?
+    \item \textbf{RQ2:} Does multi-task learning—jointly predicting clarity and evasion—improve performance compared to single-task models?
+    \item \textbf{RQ3:} How does severe class imbalance in evasion strategies affect model performance, and can Focal Loss mitigate this issue?
+    \item \textbf{RQ4:} Which transformer architecture (BERT, DistilBERT, ALBERT) offers the best trade-off between accuracy and efficiency?
+\end{enumerate}
+
+\subsection{Contributions}
+
+Our main contributions are:
+\begin{itemize}
+    \item A systematic comparison of baseline and transformer models for the CLARITY shared task.
+    \item An analysis of multi-task learning for joint clarity and evasion prediction.
+    \item An empirical study of class imbalance effects and the use of Focal Loss for evasion classification.
+    \item Publicly available code and trained models.\footnote{\url{https://github.com/minh-de-rien/political-evasion-classifier}}
+\end{itemize}
