@@ -236,3 +236,84 @@ def majority_baseline_accuracy(y_train: np.ndarray, y_test: np.ndarray) -> float
     majority_class = Counter(y_train).most_common(1)[0][0]
     y_pred = np.full_like(y_test, majority_class)
     return accuracy_score(y_test, y_pred)
+
+
+def convert_evasion_preds_to_clarity(
+    evasion_preds: np.ndarray,
+    evasion_label_names: List[str]
+) -> np.ndarray:
+    """
+    Convert evasion predictions (IDs) to clarity predictions (IDs).
+    
+    This is for the two-step "evasion-based clarity" classification strategy.
+    
+    Args:
+        evasion_preds: Array of predicted evasion label IDs
+        evasion_label_names: List mapping evasion IDs to label names
+        
+    Returns:
+        Array of corresponding clarity label IDs
+    """
+    from data import map_evasion_to_clarity, CLARITY_TO_ID
+    
+    clarity_preds = []
+    for evasion_id in evasion_preds:
+        evasion_label = evasion_label_names[evasion_id]
+        clarity_label = map_evasion_to_clarity(evasion_label)
+        clarity_id = CLARITY_TO_ID[clarity_label]
+        clarity_preds.append(clarity_id)
+    
+    return np.array(clarity_preds)
+
+
+def evaluate_evasion_based_clarity(
+    evasion_preds: np.ndarray,
+    clarity_true: np.ndarray,
+    evasion_label_names: List[str],
+    clarity_label_names: List[str],
+    verbose: bool = True
+) -> Dict[str, float]:
+    """
+    Evaluate clarity classification using evasion predictions.
+    
+    Two-step strategy: predict evasion → map to clarity → evaluate.
+    
+    Args:
+        evasion_preds: Predicted evasion label IDs
+        clarity_true: True clarity label IDs
+        evasion_label_names: List of evasion label names
+        clarity_label_names: List of clarity label names
+        verbose: Whether to print results
+        
+    Returns:
+        Dictionary of metrics
+    """
+    # Map evasion predictions to clarity
+    clarity_preds = convert_evasion_preds_to_clarity(evasion_preds, evasion_label_names)
+    
+    # Evaluate clarity
+    metrics = {
+        'accuracy': accuracy_score(clarity_true, clarity_preds),
+        'macro_f1': f1_score(clarity_true, clarity_preds, average='macro'),
+        'weighted_f1': f1_score(clarity_true, clarity_preds, average='weighted'),
+        'macro_precision': precision_score(clarity_true, clarity_preds, average='macro'),
+        'macro_recall': recall_score(clarity_true, clarity_preds, average='macro')
+    }
+    
+    if verbose:
+        print("=" * 60)
+        print("EVASION-BASED CLARITY CLASSIFICATION")
+        print("=" * 60)
+        print(f"Accuracy:          {metrics['accuracy']:.4f}")
+        print(f"Macro F1:          {metrics['macro_f1']:.4f}")
+        print(f"Weighted F1:       {metrics['weighted_f1']:.4f}")
+        print(f"Macro Precision:   {metrics['macro_precision']:.4f}")
+        print(f"Macro Recall:      {metrics['macro_recall']:.4f}")
+        print("\nClassification Report:")
+        print(classification_report(
+            clarity_true, clarity_preds,
+            target_names=clarity_label_names,
+            zero_division=0
+        ))
+    
+    return metrics

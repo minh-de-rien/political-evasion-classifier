@@ -108,18 +108,22 @@ def add_text_statistics(df: pd.DataFrame) -> pd.DataFrame:
 
 def get_annotator_labels(row: pd.Series) -> set:
     """
-    Extract set of annotator labels from test set row.
+    Extract set of valid annotator labels from test set row.
+    
+    Only includes labels that are in the EVASION_LABELS taxonomy.
+    This filters out any typos or invalid labels from annotators.
     
     Args:
         row: DataFrame row with annotator1/2/3 columns
         
     Returns:
-        Set of valid annotator labels (excluding empty/NaN)
+        Set of valid annotator labels (validated against taxonomy)
     """
     labels = []
     for col in ["annotator1", "annotator2", "annotator3"]:
         val = row.get(col)
-        if pd.notna(val) and val != "":
+        # Validate against taxonomy
+        if pd.notna(val) and val != "" and val in EVASION_LABELS:
             labels.append(val)
     return set(labels)
 
@@ -188,8 +192,6 @@ def prepare_task2_data(
     """
     Prepare train/val/test splits for Task 2 (Evasion).
     
-    Note: Test split has multiple annotators per example.
-    
     Args:
         dataset: Original QEvasion dataset
         val_size: Fraction of training data to use for validation
@@ -197,6 +199,8 @@ def prepare_task2_data(
         
     Returns:
         Tuple of (train_df, val_df, test_df) DataFrames
+        - train_df, val_df: Have single 'evasion_label' and 'evasion_id'
+        - test_df: Has 'annotator_labels' (sets) for multi-annotator evaluation
     """
     from sklearn.model_selection import train_test_split
     
@@ -210,19 +214,22 @@ def prepare_task2_data(
         (train_df["evasion_label"] != "")
     ].reset_index(drop=True)
     
-    # Add preprocessing
+    # Add preprocessing for train
     train_df = build_text_column(train_df)
     train_df = add_label_ids(train_df)
     train_df = add_text_statistics(train_df)
     
-    # Test set: add text and extract annotator labels
+    # Test set: add text and extract annotator labels (with validation)
     test_df = build_text_column(test_df)
     test_df["annotator_labels"] = test_df.apply(get_annotator_labels, axis=1)
     
-    # Filter test rows with at least one annotator label
+    # Filter test rows with at least one valid annotator label
     test_df = test_df[
         test_df["annotator_labels"].apply(len) > 0
     ].reset_index(drop=True)
+    
+    # Add text statistics
+    test_df = add_text_statistics(test_df)
     
     # Split train into train/val
     train_idx, val_idx = train_test_split(
@@ -236,6 +243,50 @@ def prepare_task2_data(
     train_df = train_df.iloc[train_idx].reset_index(drop=True)
     
     return train_df, val_df, test_df
+
+
+def map_evasion_to_clarity(evasion_label: str) -> str:
+    """
+    Map evasion-level label to clarity-level label according to taxonomy.
+    
+    Taxonomy mapping (from paper Figure 3):
+    - "Explicit" -> "Clear Reply"
+    - "Declining to answer", "Claims ignorance", "Clarification" -> "Clear Non-Reply"
+    - "Implicit", "Dodging", "General", "Deflection", "Partial/half-answer" -> "Ambivalent"
+    
+    Args:
+        evasion_label: Fine-grained evasion label
+        
+    Returns:
+        Corresponding clarity label
+    """
+    if evasion_label == "Explicit":
+        return "Clear Reply"
+    elif evasion_label in ["Declining to answer", "Claims ignorance", "Clarification"]:
+        return "Clear Non-Reply"
+    else:  # Implicit, Dodging, General, Deflection, Partial/half-answer
+        return "Ambivalent"
+
+
+def map_evasion_ids_to_clarity_ids(evasion_ids: np.ndarray) -> np.ndarray:
+    """
+    Map array of evasion label IDs to clarity label IDs.
+    
+    Useful for two-step classification: predict evasion, then map to clarity.
+    
+    Args:
+        evasion_ids: Array of evasion label IDs
+        
+    Returns:
+        Array of corresponding clarity label IDs
+    """
+    clarity_ids = []
+    for evasion_id in evasion_ids:
+        evasion_label = ID_TO_EVASION[evasion_id]
+        clarity_label = map_evasion_to_clarity(evasion_label)
+        clarity_id = CLARITY_TO_ID[clarity_label]
+        clarity_ids.append(clarity_id)
+    return np.array(clarity_ids)
 
 
 def load_qevasion_prepared() -> DatasetDict:
