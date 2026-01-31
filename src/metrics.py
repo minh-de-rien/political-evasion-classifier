@@ -15,6 +15,8 @@ from sklearn.metrics import (
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from src.data import map_evasion_to_clarity, CLARITY_TO_ID
+
 
 def evaluate_task1(
     y_true: np.ndarray,
@@ -254,7 +256,6 @@ def convert_evasion_preds_to_clarity(
     Returns:
         Array of corresponding clarity label IDs
     """
-    from data import map_evasion_to_clarity, CLARITY_TO_ID
     
     clarity_preds = []
     for evasion_id in evasion_preds:
